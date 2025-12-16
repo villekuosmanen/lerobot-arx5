@@ -9,13 +9,15 @@ import arx5_interface as arx5
 import numpy as np
 import torch
 
-from lerobot.common.robot_devices.cameras.utils import make_cameras_from_configs
-from lerobot.common.robot_devices.utils import (
-    RobotDeviceAlreadyConnectedError,
-    RobotDeviceNotConnectedError,
-    busy_wait,
+from lerobot.cameras import make_cameras_from_configs
+from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
+from lerobot.utils.robot_utils import precise_sleep
+
+from lerobot_arx5 import (
+    ARXControlModel,
+    ARX5ArmConfig,
+    ARX5RobotConfig,
 )
-from lerobot.common.robot_devices.robots.configs import ARX5ArmConfig, ARX5RobotConfig
 
 DOF = 6
 MOTOR_NAMES = []
@@ -27,90 +29,100 @@ class ARX5Arm:
 
     def __init__(
         self,
+        control_mode: ARXControlModel,
         config: ARX5ArmConfig,
         is_master: bool,
     ):
+        self.control_mode = control_mode
         self.config = config
         self.is_connected = False
         self.is_master = is_master
-
-        self.joint_controller = None
+        self.robot_controller = None
 
     def connect(self):
         if self.is_connected:
-            raise RobotDeviceAlreadyConnectedError(
+            raise DeviceAlreadyConnectedError(
                 "ARX5Arm is already connected. Do not run `robot.connect()` twice."
             )
         self.is_connected = True
 
-        if self.config.model != "L5":
-            raise ValueError("Creating an ARX robot with non-L5 is probably incorrect in our setup so not allowed.")
-
         robot_config = arx5.RobotConfigFactory.get_instance().get_config(self.config.model)
         robot_config.gripper_torque_max *= 2
         controller_config = arx5.ControllerConfigFactory.get_instance().get_config(
-            "joint_controller", robot_config.joint_dof
+            self.control_mode.value, robot_config.joint_dof
         )
-        controller_config.controller_dt = 0.005  # Sets the internal communication frequency (in seconds).
+        controller_config.controller_dt = 0.01  # Sets the internal communication frequency (in seconds).
                                                 # Slower CPU + USB I/O processing requires lower frequency comms.
         controller_config.gravity_compensation = True   # TODO: may be default true
         controller_config.background_send_recv = True
 
-        self.joint_controller = arx5.Arx5JointController(robot_config, controller_config, self.config.interface_name)
-        print("joint controller created")
-        self.joint_controller.reset_to_home()
-        # self.joint_controller.set_log_level(arx5.LogLevel.DEBUG)
+        if self.control_mode == ARXControlModel.JOINT_CONTROLLER:
+            self.robot_controller = arx5.Arx5JointController(robot_config, controller_config, self.config.interface_name)
+            print("ARX5 Joint Controller created")
+        elif self.control_mode == ARXControlModel.CARTESIAN_CONTROLLER:
+            self.robot_controller = arx5.Arx5CartesianController(robot_config, controller_config, self.config.interface_name)
+            print("ARX5 Cartesian Controller created")
+        else:
+            raise ValueError(f"Invalid arm control mode provided: expected {ARXControlModel.JOINT_CONTROLLER} or {ARXControlModel.CARTESIAN_CONTROLLER}, got {self.control_mode}")
+        
+        self.robot_controller.reset_to_home()
+        # self.robot_controller.enable_gravity_compensation(self.config.urdf_path)
+        # self.robot_controller.set_log_level(arx5.LogLevel.DEBUG)
 
         self.robot_config = robot_config
         print(f"Gripper max width: {self.robot_config.gripper_width}")
 
     def disconnect(self):
         if not self.is_connected:
-            raise RobotDeviceAlreadyConnectedError(
+            raise DeviceAlreadyConnectedError(
                 "ARX5Arm is not connected. Do not run `robot.disconnect()` twice."
             )
         # notify the arm process of imminent shutdown
         self.is_connected = False
         # safely shut down the follower arm
         if not self.is_master:
-            self.joint_controller.reset_to_home()
-            self.joint_controller.set_to_damping()
-        self.joint_controller = None
+            self.robot_controller.reset_to_home()
+            self.robot_controller.set_to_damping()
+        self.robot_controller = None
 
     def reset(self):
         if not self.is_connected:
-            raise RobotDeviceAlreadyConnectedError(
+            raise DeviceAlreadyConnectedError(
                 "ARX5Arm is not connected. Do not run `robot.disconnect()` twice."
             )
-        self.joint_controller.reset_to_home()
+        self.robot_controller.reset_to_home()
 
-    def calibrate(self):
+    def configure(self):
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Arm is not connected. You need to run `robot.connect()`."
             )
         if self.is_master:
-            self.joint_controller.set_to_damping()
-            gain = self.joint_controller.get_gain()
+            self.robot_controller.set_to_damping()
+            gain = self.robot_controller.get_gain()
             gain.kd()[:3] *= 0.05
             gain.kd()[3:] *= 0.1
-            self.joint_controller.set_gain(gain)
+            self.robot_controller.set_gain(gain)
         else:
             # gripper - make it less aggressive
-            gain = self.joint_controller.get_gain()
+            gain = self.robot_controller.get_gain()
             gain.kd()[:3] /= 1.2
             gain.kd()[3:] *= 1.2
             gain.gripper_kp /= 1.8
             gain.gripper_kd *= 1.8
-            self.joint_controller.set_gain(gain)
+            self.robot_controller.set_gain(gain)
 
     def get_state(self) -> np.ndarray:
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Arm is not connected. You need to run `robot.connect()`."
             )
-        joint_state = self.joint_controller.get_joint_state()
-        state = np.concatenate([joint_state.pos().copy(), np.array([joint_state.gripper_pos])])
+        if self.control_mode == ARXControlModel.JOINT_CONTROLLER:
+            joint_state = self.robot_controller.get_joint_state()
+            state = np.concatenate([joint_state.pos().copy(), np.array([joint_state.gripper_pos])])
+        else:
+            eef_state = self.robot_controller.get_eef_state()
+            state = np.concatenate([eef_state.pose_6d().copy(), np.array([eef_state.gripper_pos])])
         if self.is_master:
             state[-1] *= 3.85
 
@@ -120,10 +132,10 @@ class ARX5Arm:
     
     def get_obs(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Arm is not connected. You need to run `robot.connect()`."
             )
-        joint_state = self.joint_controller.get_joint_state()
+        joint_state = self.robot_controller.get_joint_state()
         pos = np.concatenate([joint_state.pos().copy(), np.array([joint_state.gripper_pos])])
         vel = np.concatenate([joint_state.vel().copy(), np.array([joint_state.gripper_vel])])
         effort = np.concatenate([joint_state.torque().copy(), np.array([joint_state.gripper_torque])])
@@ -132,25 +144,32 @@ class ARX5Arm:
             vel[-1] *= 3.85
             effort[-1] *= 3.85
 
-        eef_state = self.joint_controller.get_eef_state()
-        return (pos, vel, effort, eef_state.pose_6d().copy())
+        eef_cartesians = self.robot_controller.get_eef_state()
+        eef_state = eef_cartesians.pose_6d().copy()
+        # eef_state = np.concatenate([eef_cartesians.pose_6d().copy(), np.array([eef_cartesians.gripper_pos])])
+        return (pos, vel, effort, eef_state)
     
     def send_command(self, action: np.ndarray):
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Arm is not connected. You need to run `robot.connect()`."
             )
-        cmd = arx5.JointState(DOF)
-        cmd.pos()[0:DOF] = action[0:DOF]
-
+        # Rescale gripper width
         if self.is_master:
             action[DOF] /= 3.85
         if action[DOF] > self.robot_config.gripper_width:
             action[DOF] = self.robot_config.gripper_width
-        cmd.gripper_pos = action[DOF]
-
-        # Process command, e.g., move joints
-        self.joint_controller.set_joint_cmd(cmd)
+        gripper_pos = action[DOF]
+        
+        if self.control_mode == ARXControlModel.JOINT_CONTROLLER:
+            cmd = arx5.JointState(DOF)
+            cmd.pos()[0:DOF] = action[0:DOF]
+            cmd.gripper_pos = gripper_pos
+            self.robot_controller.set_joint_cmd(cmd)
+        else:
+            cartesian_pos = action[0:DOF]
+            eef_cmd = arx5.EEFState(cartesian_pos, gripper_pos)
+            self.robot_controller.set_eef_cmd(eef_cmd)
 
     def interpolate_arm_position(self, action: np.ndarray):
         seconds = 3.5
@@ -166,7 +185,7 @@ class ARX5Arm:
             self.send_command(interp_pos)
 
             dt_s = time.perf_counter() - start_loop_t
-            busy_wait(1 / fps - dt_s)
+            precise_sleep(1 / fps - dt_s)
 
 class ARX5Robot:
     """
@@ -177,14 +196,14 @@ class ARX5Robot:
     def __init__(
         self,
         config: ARX5RobotConfig | None = None,
-        # calibration_path: Path = ".cache/calibration/koch.pkl",
-        **kwargs,
     ):
         if config is None:
-            config = ARX5RobotConfig()
-        # Overwrite config arguments using kwargs
-        self.config = replace(config, **kwargs)
-        # self.calibration_path = Path(calibration_path)
+            raise ValueError("No robot config provided.")
+
+        if config.control_mode == ARXControlModel.JOINT_CONTROLLER:
+            self.joint_thresholds = np.array([0.25, 0.25, 0.25, 0.3, 0.3, 0.3, 0.10])
+        else:
+            self.joint_thresholds = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.10])
 
         self.leader_arms = {}
         self.follower_arms = {}
@@ -211,7 +230,7 @@ class ARX5Robot:
         return len(self.cameras)
     
     @property
-    def camera_features(self) -> dict:
+    def _cameras_ft(self) -> dict:
         cam_ft = {}
         for cam_key, cam in self.cameras.items():
             key = f"observation.images.{cam_key}"
@@ -223,7 +242,7 @@ class ARX5Robot:
         return cam_ft
     
     @property
-    def motor_features(self) -> dict:
+    def _motors_ft(self) -> dict:
         action_space = len(self.follower_arms) * (DOF + 1)
         return {
             "action": {
@@ -247,10 +266,22 @@ class ARX5Robot:
                 "shape": (len(self.follower_arms)*6,),
             },
         }
+    
+    @property
+    def observation_features(self) -> dict[str, type | tuple]:
+        return {**self._motors_ft, **self._cameras_ft}
+
+    @property
+    def action_features(self) -> dict[str, type]:
+        return self._motors_ft
+    
+    @property
+    def is_calibrated(self) -> bool:
+        return True
 
     def connect(self):
         if self.is_connected:
-            raise RobotDeviceAlreadyConnectedError(
+            raise DeviceAlreadyConnectedError(
                 "ARX5Robot is already connected. Do not run `robot.connect()` twice."
             )
 
@@ -270,7 +301,7 @@ class ARX5Robot:
             time.sleep(0.2)
 
         # Run calibration process which begins by resetting all arms
-        self.run_calibration()
+        self.configure()
 
         # Connect the cameras
         for name in self.cameras:
@@ -278,13 +309,13 @@ class ARX5Robot:
 
         self.is_connected = True
 
-    def run_calibration(self):
+    def configure(self):
         for name in self.follower_arms:
-            print(f"Calibrating {name} follower arm: {self.follower_arms[name]}")
-            self.follower_arms[name].calibrate()
+            print(f"Configuring {name} follower arm: {self.follower_arms[name]}")
+            self.follower_arms[name].configure()
         for name in self.leader_arms:
-            print(f"Calibrating {name} leader arm: {self.leader_arms[name]}")
-            self.leader_arms[name].calibrate()
+            print(f"Configuring {name} leader arm: {self.leader_arms[name]}")
+            self.leader_arms[name].configure()
 
     def reset(self):
         # reset leader arms
@@ -299,7 +330,7 @@ class ARX5Robot:
         self, record_data=False
     ) -> None | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Robot is not connected. You need to run `robot.connect()`."
             )
         
@@ -312,7 +343,12 @@ class ARX5Robot:
         
         follower_goal_pos = {}
         for name in self.leader_arms:
+            follower_current_pos = self.follower_arms[name].get_state()
             follower_goal_pos[name] = leader_pos[name]
+            # Check if goal position is safe - if the difference in individual joints is greater than the threshold
+            # We need to raise an error
+            if np.any(np.abs(follower_goal_pos[name] - follower_current_pos) > self.joint_thresholds):
+                raise ValueError(f"Goal position for {name} is not safe. The difference in individual joints is greater than the threshold.")
 
             # Send action
             if name in self.follower_arms:
@@ -380,7 +416,7 @@ class ARX5Robot:
     def capture_observation(self):
         """The returned observations do not have a batch dimension."""
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Robot is not connected. You need to run `robot.connect()`."
             )
 
@@ -428,7 +464,7 @@ class ARX5Robot:
     def send_action(self, action: torch.Tensor):
         """The provided action is expected to be a vector."""
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Robot is not connected. You need to run `robot.connect()`."
             )
         action = action.numpy()
@@ -453,15 +489,13 @@ class ARX5Robot:
             
             # capture follower arm's position
             follower_pos = self.follower_arms[name].get_state()
-            # print the positions
+            
             print(f"*** Setting leader arm '{name}' to position {follower_pos} ***")
-            # lock the leader arm (??)
-            # move the leader arm
             leader_arm.interpolate_arm_position(follower_pos)
-            # print that it's done
             print(f"*** Leader arm '{name}' set to position {follower_pos} ***")
-            # unlock the leader arm (??)
-            leader_arm.calibrate()
+            
+            # unlock the leader arm
+            leader_arm.configure()
 
     def lock_teleop_offset(self):
         """
@@ -484,7 +518,7 @@ class ARX5Robot:
 
     def disconnect(self):
         if not self.is_connected:
-            raise RobotDeviceNotConnectedError(
+            raise DeviceNotConnectedError(
                 "ARX5Robot is not connected. You need to run `robot.connect()` before disconnecting."
             )
 
