@@ -25,4 +25,3 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["lerobot_robot_arx5*"]
-

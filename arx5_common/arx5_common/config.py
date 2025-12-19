@@ -48,4 +48,3 @@ class ARX5ArmConfig:
     """Configuration for a single ARX5 arm."""
     model: ARXArmModel
     interface_name: str
-

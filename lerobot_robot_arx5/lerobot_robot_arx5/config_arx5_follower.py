@@ -37,4 +37,3 @@ class ARX5FollowerConfig(RobotConfig):
             model=self.arm_model,
             interface_name=self.interface_name,
         )
-

@@ -5,4 +5,3 @@ __all__ = [
     "ARX5FollowerConfig",
     "ARX5Follower",
 ]
-

@@ -171,4 +171,3 @@ class ARX5Leader(Teleoperator):
         
         self.arm.disconnect()
         logger.info(f"{self} disconnected.")
-
