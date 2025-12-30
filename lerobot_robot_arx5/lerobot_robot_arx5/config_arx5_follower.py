@@ -4,6 +4,7 @@ Configuration for ARX5 follower robot.
 
 from dataclasses import dataclass, field
 
+import numpy as np
 from lerobot.cameras import CameraConfig
 from lerobot.robots.config import RobotConfig
 
@@ -27,8 +28,6 @@ class ARX5FollowerConfig(RobotConfig):
     # Cameras attached to this robot
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
     
-    # Safety: max relative target limits the magnitude of position changes per step
-    max_relative_target: float | None = None
 
     @property
     def arm_config(self) -> ARX5ArmConfig:
@@ -37,3 +36,10 @@ class ARX5FollowerConfig(RobotConfig):
             model=self.arm_model,
             interface_name=self.interface_name,
         )
+    
+    # Safety: max relative target limits the magnitude of position changes per step
+    @property
+    def max_relative_target(self):
+        if self.control_mode == ARXControlMode.JOINT_CONTROLLER:
+            return np.array([0.25, 0.25, 0.25, 0.3, 0.3, 0.3, 0.10])
+        return np.array([0.33, 0.33, 0.33, 0.33, 0.33, 0.33, 0.10])

@@ -6,11 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "arx5-common"
 version = "0.1.0"
 description = "Shared utilities for ARX5 robot arm LeRobot plugins"
-readme = "../README.md"
 authors = [
   { name = "Ville Kuosmanen", email = "ville@villekuosmanen.com" },
 ]
-license = { file = "../LICENSE" }
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -18,7 +17,6 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "arx5-sdk",
   "numpy",
   "torch",
   "lerobot>=0.4",
