@@ -5,9 +5,9 @@ This module provides the ARX5Follower class which implements the LeRobot Robot
 interface for ARX5 robot arms acting as followers (receiving actions).
 """
 
+from functools import cached_property
 import logging
 import time
-from functools import cached_property
 from typing import Any
 
 from lerobot.cameras.utils import make_cameras_from_configs
@@ -45,33 +45,38 @@ class ARX5Follower(Robot):
         # Create cameras
         self.cameras = make_cameras_from_configs(config.cameras)
 
-    @property
+
+    @cached_property
     def _motor_pos_ft(self) -> dict[str, type]:
         """Motor position feature types (used for joint control actions)."""
         return {f"{name}.pos": float for name in MOTOR_NAMES}
 
-    @property
+    @cached_property
     def _motor_vel_ft(self) -> dict[str, type]:
         """Motor velocity feature types."""
         return {f"{name}.velocity": float for name in MOTOR_NAMES}
 
-    @property
+    @cached_property
     def _motor_eff_ft(self) -> dict[str, type]:
         """Motor effort/torque feature types."""
         return {f"{name}.effort": float for name in MOTOR_NAMES}
 
-    @property
+    @cached_property
     def _eef_ft(self) -> dict[str, type]:
         """End-effector pose feature types (x, y, z, roll, pitch, yaw, gripper)."""
         return {key: float for key in EEF_ACTION_KEYS}
 
-    @property
+    @cached_property
     def _cameras_ft(self) -> dict[str, tuple]:
         """Camera feature types."""
         return {
             cam: (self.config.cameras[cam].height, self.config.cameras[cam].width, 3)
             for cam in self.cameras
         }
+
+    @cached_property
+    def motor_names(self) -> dict[str, type]:
+        return MOTOR_NAMES
 
     @cached_property
     def observation_features(self) -> dict[str, type | tuple]:
@@ -136,6 +141,11 @@ class ARX5Follower(Robot):
     def configure(self) -> None:
         """Configure the arm for follower operation."""
         self.arm.configure()
+    
+    def reset(self):
+        if not self.is_connected:
+            raise RuntimeError(f"{self} is not connected.")
+        self.arm.reset_to_home()
 
     def get_observation(self) -> dict[str, Any]:
         """

@@ -5,6 +5,7 @@ This module provides the ARX5Leader class which implements the LeRobot Teleopera
 interface for ARX5 robot arms acting as leaders (producing actions from human input).
 """
 
+from functools import cached_property
 import logging
 import time
 
@@ -39,27 +40,31 @@ class ARX5Leader(Teleoperator):
             is_leader=True,
         )
 
-    @property
+    @cached_property
     def _motor_pos_ft(self) -> dict[str, type]:
         """Motor position feature types."""
         return {f"{name}.pos": float for name in MOTOR_NAMES}
 
-    @property
+    @cached_property
     def _motor_vel_ft(self) -> dict[str, type]:
         """Motor velocity feature types."""
         return {f"{name}.velocity": float for name in MOTOR_NAMES}
 
-    @property
+    @cached_property
     def _motor_eff_ft(self) -> dict[str, type]:
         """Motor effort/torque feature types."""
         return {f"{name}.effort": float for name in MOTOR_NAMES}
 
-    @property
+    @cached_property
     def _eef_ft(self) -> dict[str, type]:
         """End-effector pose feature types."""
         return {key: float for key in EEF_ACTION_KEYS}
+    
+    @cached_property
+    def motor_names(self) -> dict[str, type]:
+        return MOTOR_NAMES
 
-    @property
+    @cached_property
     def action_features(self) -> dict[str, type]:
         """
         Features produced by this teleoperator (sent to follower robot).
@@ -73,7 +78,7 @@ class ARX5Leader(Teleoperator):
             **self._eef_ft,
         }
 
-    @property
+    @cached_property
     def feedback_features(self) -> dict[str, type]:
         """Features that can be sent back to this teleoperator as feedback."""
         # ARX5 doesn't currently support force feedback
@@ -114,6 +119,11 @@ class ARX5Leader(Teleoperator):
     def configure(self) -> None:
         """Configure the arm for leader/teleoperator operation."""
         self.arm.configure()
+
+    def reset(self):
+        if not self.is_connected:
+            raise RuntimeError(f"{self} is not connected.")
+        self.arm.reset_to_home()
 
     def get_action(self) -> dict[str, float]:
         """

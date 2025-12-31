@@ -112,9 +112,9 @@ teleop_action_pipeline = RobotProcessorPipeline(
     steps=[
         ARX5TeleopActionAggregatorProcessorStep(
             motor_names=list(teleop.bus.motors.keys()),
-            include_velocity=False,  # Teleop might not have velocity
-            include_effort=False,
-            include_eef_pose=True,  # If teleop provides EEF commands
+            include_velocity=True,
+            include_effort=True,
+            include_eef_pose=True,
         ),
         # Could add steps to convert teleop space to robot space
     ],

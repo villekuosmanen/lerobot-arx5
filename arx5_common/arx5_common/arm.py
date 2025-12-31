@@ -94,6 +94,7 @@ class ARX5Arm:
             self.robot_controller.set_to_damping()
         
         self.robot_controller = None
+        time.sleep(0.5)
         self.is_connected = False
 
     def reset_to_home(self) -> None:
