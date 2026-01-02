@@ -12,7 +12,7 @@ from typing import Tuple
 import arx5_interface as arx5
 import numpy as np
 
-from .config import ARXArmModel, ARXControlMode, ARX5ArmConfig, DOF
+from .config import ARXControlMode, ARX5ArmConfig, DOF
 
 
 class ARX5Arm:

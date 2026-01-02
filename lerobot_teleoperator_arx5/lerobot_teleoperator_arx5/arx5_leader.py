@@ -11,7 +11,7 @@ import time
 
 from lerobot.teleoperators.teleoperator import Teleoperator
 
-from arx5_common import ARX5Arm, ARXControlMode, DOF, MOTOR_NAMES, EEF_ACTION_KEYS
+from arx5_common import ARX5Arm, MOTOR_NAMES, EEF_ACTION_KEYS
 
 from .config_arx5_leader import ARX5LeaderConfig
 

@@ -13,7 +13,7 @@ from typing import Any
 from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.robots.robot import Robot
 
-from arx5_common import ARX5Arm, ARXControlMode, DOF, MOTOR_NAMES, EEF_ACTION_KEYS
+from arx5_common import ARX5Arm, ARXControlMode, MOTOR_NAMES, EEF_ACTION_KEYS
 
 from .config_arx5_follower import ARX5FollowerConfig
 
