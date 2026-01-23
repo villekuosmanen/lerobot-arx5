@@ -30,3 +30,4 @@ class ARX5LeaderConfig(TeleoperatorConfig):
             model=self.arm_model,
             interface_name=self.interface_name,
         )
+

@@ -29,6 +29,8 @@ class ARX5SelectControlModeProcessorStep(ObservationProcessorStep):
         
         # Hack to handle images
         for key, val in observation.items():
+            if not isinstance(val, torch.Tensor):
+                continue
             if len(val.shape) == 3:
                 # assume it is an image
                 processed_obs.pop(key)
