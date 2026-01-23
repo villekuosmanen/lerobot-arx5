@@ -29,6 +29,8 @@ class ARX5SelectControlModeProcessorStep(ObservationProcessorStep):
         
         # Hack to handle images
         for key, val in observation.items():
+            if not isinstance(val, torch.Tensor):
+                continue
             if len(val.shape) == 3:
                 # assume it is an image
                 processed_obs.pop(key)
@@ -78,12 +80,15 @@ class ARX5SelectActionModeProcessorStep(ActionProcessorStep):
     
     def action(self, action: dict) -> dict:
         processed_action = {}
-        processed_action[f"{ACTION}.{self.action_mode}"] = action["action"].squeeze(0)
         # as our model only predicts current action mode, we need to set
         # everything else to zeroes
-        processed_action[f"{ACTION}.velocity"] = torch.zeros_like(processed_action[f"{ACTION}.{self.action_mode}"])
-        processed_action[f"{ACTION}.effort"] = torch.zeros_like(processed_action[f"{ACTION}.{self.action_mode}"])
-        processed_action[f"{ACTION}.eef_pose"] = torch.zeros_like(processed_action[f"{ACTION}.{self.action_mode}"])
+        processed_action[f"{ACTION}.pos"] = torch.zeros_like(action["action"].squeeze(0))
+        processed_action[f"{ACTION}.velocity"] = torch.zeros_like(action["action"].squeeze(0))
+        processed_action[f"{ACTION}.effort"] = torch.zeros_like(action["action"].squeeze(0))
+        processed_action[f"{ACTION}.eef_pose"] = torch.zeros_like(action["action"].squeeze(0))
+
+        # finally set our real action
+        processed_action[f"{ACTION}.{self.action_mode}"] = action["action"].squeeze(0)
         return processed_action
     
     def transform_features(self, features):
@@ -215,13 +220,14 @@ class ARX5RobotActionAggregatorProcessorStep(RobotActionProcessorStep):
         
         # Extract positions
         for i, motor_name in enumerate(self.motor_names):
-            processed_action[f"{motor_name}.pos"] = action["action.pos"].squeeze()[i]
-            if self.include_velocity:
+            if "action.pos" in action:
+                processed_action[f"{motor_name}.pos"] = action["action.pos"].squeeze()[i]
+            if "action.velocity" in action:
                 processed_action[f"{motor_name}.velocity"] = action["action.velocity"].squeeze()[i]
-            if self.include_effort:
+            if "action.effort" in action:
                 processed_action[f"{motor_name}.effort"] = action["action.effort"].squeeze()[i]
         
-        if self.include_eef_pose:           
+        if "action.eef_pose" in action:
             processed_action["eef.x"] = action["action.eef_pose"].squeeze()[0]
             processed_action["eef.y"] = action["action.eef_pose"].squeeze()[1]
             processed_action["eef.z"] = action["action.eef_pose"].squeeze()[2]
