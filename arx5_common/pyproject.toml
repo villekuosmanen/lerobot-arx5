@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arx5-common"
-version = "0.1.0"
+version = "0.1.1"
 description = "Shared utilities for ARX5 robot arm LeRobot plugins"
 authors = [
   { name = "Ville Kuosmanen", email = "ville@villekuosmanen.com" },
