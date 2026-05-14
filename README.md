@@ -1,6 +1,6 @@
 # LeRobot ARX5 Plugins
 
-This repository provides [LeRobot](https://github.com/huggingface/lerobot) plugins for [ARX5 robot arms](https://www.arx-robotics.com/).
+This repository provides [LeRobot](https://github.com/huggingface/lerobot) plugins for [ARX5 robot arms](https://arx-x.com/).
 
 ## Package Structure
 
@@ -259,7 +259,7 @@ policy_postprocessor = PolicyProcessorPipeline(
 
 - Python ≥ 3.10
 - [LeRobot](https://github.com/huggingface/lerobot) ≥ 0.4
-- [arx5-sdk](https://github.com/arx-robotics/arx5-sdk) (automatically installed)
+- [arx5-sdk](https://github.com/real-stanford/arx5-sdk) (automatically installed)
 
 ## License
 
