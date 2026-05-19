@@ -1,6 +1,6 @@
 # LeRobot ARX5 Plugins
 
-This repository provides [LeRobot](https://github.com/huggingface/lerobot) plugins for [ARX5 robot arms](https://www.arx-robotics.com/).
+This repository provides [LeRobot](https://github.com/huggingface/lerobot) plugins for [ARX5 robot arms](https://arx-x.com/).
 
 ## Package Structure
 
@@ -9,8 +9,8 @@ This monorepo contains three packages:
 | Package | Description |
 |---------|-------------|
 | `arx5-common` | Shared low-level arm control and configuration |
-| `lerobot_robot_arx5` | Follower robot plugin (receives actions) |
-| `lerobot_teleoperator_arx5` | Leader teleoperator plugin (produces actions) |
+| `lerobot_robot_arx5` | Follower robot plugin (`arx5_follower`, `bi_arx5_follower`) |
+| `lerobot_teleoperator_arx5` | Leader teleoperator plugin (`arx5_leader`, `bi_arx5_leader`) |
 
 ```
 lerobot-arx5/
@@ -22,12 +22,16 @@ lerobot-arx5/
 ├── lerobot_robot_arx5/                   # Robot (follower) plugin
 │   └── lerobot_robot_arx5/
 │       ├── config_arx5_follower.py       # ARX5FollowerConfig
-│       └── arx5_follower.py              # ARX5Follower
+│       ├── arx5_follower.py              # ARX5Follower
+│       ├── config_bi_arx5_follower.py    # BiARX5FollowerConfig
+│       └── bi_arx5_follower.py           # BiARX5Follower
 │
 └── lerobot_teleoperator_arx5/            # Teleoperator (leader) plugin
     └── lerobot_teleoperator_arx5/
         ├── config_arx5_leader.py         # ARX5LeaderConfig
-        └── arx5_leader.py                # ARX5Leader
+        ├── arx5_leader.py                # ARX5Leader
+        ├── config_bi_arx5_leader.py      # BiARX5LeaderConfig
+        └── bi_arx5_leader.py             # BiARX5Leader
 ```
 
 ## Installation
@@ -57,14 +61,26 @@ pip install lerobot_teleoperator_arx5
 
 ## Usage
 
-### Teleoperation (recording demonstrations)
+### Single-arm teleoperation
 
 ```bash
 lerobot-teleoperate \
     --robot.type=arx5_follower \
     --robot.interface_name=enxa0cec881b947 \
     --teleop.type=arx5_leader \
-    --teleop.interface_name=enx6c6e0711f4e2
+    --teleop.interface_name=enxa0cec889459b
+```
+
+### Bimanual teleoperation
+
+```bash
+lerobot-teleoperate \
+    --robot.type=bi_arx5_follower \
+    --robot.left_arm_config.interface_name=enxa0cec881b947 \
+    --robot.right_arm_config.interface_name=enx6c6e0711f127 \
+    --teleop.type=bi_arx5_leader \
+    --teleop.left_arm_config.interface_name=enxa0cec889459b \
+    --teleop.right_arm_config.interface_name=enx6c6e0711f4e2
 ```
 
 ### Recording a Dataset
@@ -243,7 +259,7 @@ policy_postprocessor = PolicyProcessorPipeline(
 
 - Python ≥ 3.10
 - [LeRobot](https://github.com/huggingface/lerobot) ≥ 0.4
-- [arx5-sdk](https://github.com/arx-robotics/arx5-sdk) (automatically installed)
+- [arx5-sdk](https://github.com/real-stanford/arx5-sdk) (automatically installed)
 
 ## License
 
