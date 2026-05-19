@@ -22,6 +22,13 @@ class BiARX5Leader(Teleoperator):
         self.right_arm = ARX5Leader(config.right_arm_config)
 
     @cached_property
+    def motor_names(self) -> list[str]:
+        return (
+            [f"left_{n}" for n in self.left_arm.motor_names]
+            + [f"right_{n}" for n in self.right_arm.motor_names]
+        )
+
+    @cached_property
     def action_features(self) -> dict[str, type]:
         return {
             **{f"left_{k}": v for k, v in self.left_arm.action_features.items()},

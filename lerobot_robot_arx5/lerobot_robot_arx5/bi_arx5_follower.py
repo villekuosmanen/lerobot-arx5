@@ -23,6 +23,13 @@ class BiARX5Follower(Robot):
         self.cameras = {**self.left_arm.cameras, **self.right_arm.cameras}
 
     @cached_property
+    def motor_names(self) -> list[str]:
+        return (
+            [f"left_{n}" for n in self.left_arm.motor_names]
+            + [f"right_{n}" for n in self.right_arm.motor_names]
+        )
+
+    @cached_property
     def observation_features(self) -> dict[str, type | tuple]:
         return {
             **{f"left_{k}": v for k, v in self.left_arm.observation_features.items()},
