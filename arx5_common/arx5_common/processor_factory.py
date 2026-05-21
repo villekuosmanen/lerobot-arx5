@@ -8,13 +8,11 @@ from lerobot.processor.converters import (
     transition_to_observation,
     transition_to_robot_action,
 )
-from lerobot.configs.types import FeatureType, PolicyFeature
-from lerobot.processor import RobotAction, RobotObservation
-from lerobot.processor.pipeline import RobotProcessorPipeline
-from lerobot.configs.types import PipelineFeatureType
-from lerobot.processor import DataProcessorPipeline
+from lerobot.configs.types import FeatureType, PolicyFeature, PipelineFeatureType
+from lerobot.processor import RobotProcessorPipeline, DataProcessorPipeline
 from lerobot.datasets.pipeline_features import should_keep, strip_prefix, PREFIXES_TO_STRIP
 from lerobot.datasets.feature_utils import _validate_feature_names
+from lerobot.types import RobotAction, RobotObservation
 from lerobot.utils.constants import ACTION, OBS_IMAGES, OBS_STR
 
 
