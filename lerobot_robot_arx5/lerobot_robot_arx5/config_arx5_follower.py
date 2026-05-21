@@ -39,8 +39,8 @@ class ARX5FollowerBaseConfig:
     @property
     def max_relative_target(self):
         if self.control_mode == ARXControlMode.JOINT_CONTROLLER:
-            return np.array([0.25, 0.25, 0.25, 0.3, 0.3, 0.3, 0.10])
-        return np.array([0.33, 0.33, 0.33, 0.33, 0.33, 0.33, 0.10])
+            return np.array([0.15, 0.15, 0.15, 0.2, 0.2, 0.2, 0.05])
+        return np.array([0.33, 0.33, 0.33, 0.33, 0.33, 0.33, 0.05])
 
 
 @RobotConfig.register_subclass("arx5_follower")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lerobot_teleoperator_arx5"
-version = "0.1.1"
+version = "0.1.2"
 description = "ARX5 robot arm leader/teleoperator plugin for LeRobot"
 authors = [
   { name = "Ville Kuosmanen", email = "ville@villekuosmanen.com" },
